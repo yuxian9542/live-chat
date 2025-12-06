@@ -86,15 +86,26 @@ export const useGeminiLive = (): UseGeminiLiveReturn => {
       return;
     }
 
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError("Your browser doesn't support microphone access. Please use Chrome, Firefox, or Edge, and make sure you're accessing via localhost or HTTPS.");
+      return;
+    }
+
     try {
       setIsConnecting(true);
       setError(null);
 
       // 1. Initialize Audio Contexts
       // Input: 16kHz for Gemini
-      const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) {
+        throw new Error("Your browser doesn't support Web Audio API.");
+      }
+      
+      const inputCtx = new AudioContextClass({ sampleRate: 16000 });
       // Output: 24kHz for Gemini response
-      const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      const outputCtx = new AudioContextClass({ sampleRate: 24000 });
 
       inputAudioContextRef.current = inputCtx;
       outputAudioContextRef.current = outputCtx;
@@ -111,6 +122,7 @@ export const useGeminiLive = (): UseGeminiLiveReturn => {
       outputAnalyserRef.current = outputAnalyser;
 
       // 3. Get Microphone Stream
+      console.log('Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
           echoCancellation: true,
@@ -118,6 +130,7 @@ export const useGeminiLive = (): UseGeminiLiveReturn => {
           autoGainControl: true
         } 
       });
+      console.log('Microphone access granted!');
 
       // 4. Setup Input Pipeline
       const source = inputCtx.createMediaStreamSource(stream);
@@ -129,7 +142,7 @@ export const useGeminiLive = (): UseGeminiLiveReturn => {
 
       // 5. Initialize Gemini Client
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const model = 'gemini-3-pro-preview';
+      const model = 'gemini-2.5-flash-native-audio-preview-09-2025';
 
       // 6. Define Session Callbacks
       const sessionPromise = ai.live.connect({
