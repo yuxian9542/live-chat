@@ -129,7 +129,7 @@ export const useGeminiLive = (): UseGeminiLiveReturn => {
 
       // 5. Initialize Gemini Client
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const model = 'gemini-2.5-flash-native-audio-preview-09-2025';
+      const model = 'gemini-3-pro-preview';
 
       // 6. Define Session Callbacks
       const sessionPromise = ai.live.connect({
@@ -224,7 +224,25 @@ export const useGeminiLive = (): UseGeminiLiveReturn => {
 
     } catch (err: any) {
       console.error("Failed to connect:", err);
-      setError(err.message || "Failed to start conversation.");
+      
+      // Better error handling for different error types
+      let errorMessage = "Failed to start conversation.";
+      
+      if (err instanceof DOMException) {
+        if (err.name === 'NotAllowedError') {
+          errorMessage = "Microphone access denied. Please allow microphone permission and try again.";
+        } else if (err.name === 'NotFoundError') {
+          errorMessage = "No microphone found. Please connect a microphone and try again.";
+        } else {
+          errorMessage = `Audio error: ${err.name} - ${err.message}`;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      setError(errorMessage);
       cleanup();
     }
   }, [cleanup]);
